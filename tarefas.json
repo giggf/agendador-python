@@ -1,0 +1,17 @@
+[
+    {
+        "nome": "monitor ",
+        "path": "C:/Users/424173468.NATURA/Desktop/executaveis/monitor.exe",
+        "anchor_str": "25/11/2025 10:20",
+        "interval_val": 30,
+        "interval_unit": "Minutos",
+        "last_run": "25/11/2025 10:22:45"
+    },
+    {
+        "nome": "relatorioLog",
+        "path": "C:/Users/424173468.NATURA/Desktop/executaveis/relatorioLog.exe",
+        "anchor_str": "25/11/2025 10:25",
+        "interval_val": 30,
+        "interval_unit": "Minutos"
+    }
+]

@@ -1,0 +1,20 @@
+# Ignorar ambiente virtual
+venv/
+env/
+.env
+
+# Ignorar arquivos compilados do Python
+__pycache__/
+*.pyc
+
+# Ignorar arquivos de build do PyInstaller (para não poluir)
+build/
+dist/
+*.spec
+
+# Ignorar o executável (geralmente não se sobe .exe no git, a pessoa gera o dela)
+*.exe
+
+# Ignorar logs e banco de dados local (para a pessoa começar zerada)
+log_execucao.txt
+tarefas.json

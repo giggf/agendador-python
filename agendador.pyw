@@ -20,41 +20,42 @@ ARQUIVO_LOG = os.path.join(application_path, "log_execucao.txt")
 class AgendadorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Agendador Master 3.3")
-        self.root.geometry("1000x600")
+        self.root.title("Agendador Python 3.4")
+        self.root.geometry("1000x650")
         
         self.tarefas = []
+        self.tarefa_em_edicao_index = None # Variável de controle (None = Criando, Número = Editando)
         
         # --- 1. ÁREA DE CADASTRO ---
-        frame_top = tk.LabelFrame(root, text="Configurar Nova Tarefa", padx=15, pady=15)
-        frame_top.pack(fill="x", padx=10, pady=5)
+        self.frame_top = tk.LabelFrame(root, text="Configurar / Editar Tarefa", padx=15, pady=15)
+        self.frame_top.pack(fill="x", padx=10, pady=5)
         
         # Linha 1
-        tk.Label(frame_top, text="Nome da Tarefa:").grid(row=0, column=0, sticky="w")
-        self.entry_nome = tk.Entry(frame_top, width=30)
+        tk.Label(self.frame_top, text="Nome da Tarefa:").grid(row=0, column=0, sticky="w")
+        self.entry_nome = tk.Entry(self.frame_top, width=30)
         self.entry_nome.grid(row=0, column=1, padx=5, sticky="w")
         
-        tk.Button(frame_top, text="Selecionar Executável...", command=self.buscar_arquivo).grid(row=0, column=2, padx=5)
-        self.entry_path = tk.Entry(frame_top, width=40)
+        tk.Button(self.frame_top, text="Selecionar Executável...", command=self.buscar_arquivo).grid(row=0, column=2, padx=5)
+        self.entry_path = tk.Entry(self.frame_top, width=40)
         self.entry_path.grid(row=0, column=3, padx=5)
 
-        ttk.Separator(frame_top, orient='horizontal').grid(row=1, column=0, columnspan=4, sticky="ew", pady=15)
+        ttk.Separator(self.frame_top, orient='horizontal').grid(row=1, column=0, columnspan=4, sticky="ew", pady=15)
 
         # Linha 2
-        tk.Label(frame_top, text="Começar dia (DD/MM/AAAA):").grid(row=2, column=0, sticky="w")
-        self.entry_data = tk.Entry(frame_top, width=15)
+        tk.Label(self.frame_top, text="Começar dia (DD/MM/AAAA):").grid(row=2, column=0, sticky="w")
+        self.entry_data = tk.Entry(self.frame_top, width=15)
         self.entry_data.grid(row=2, column=1, sticky="w", padx=5)
         self.entry_data.insert(0, datetime.now().strftime("%d/%m/%Y"))
 
-        tk.Label(frame_top, text="Hora (HH:MM):").grid(row=2, column=2, sticky="e")
-        self.entry_hora = tk.Entry(frame_top, width=10)
+        tk.Label(self.frame_top, text="Hora (HH:MM):").grid(row=2, column=2, sticky="e")
+        self.entry_hora = tk.Entry(self.frame_top, width=10)
         self.entry_hora.grid(row=2, column=3, sticky="w", padx=5)
         self.entry_hora.insert(0, datetime.now().strftime("%H:%M"))
 
         # Linha 3
-        tk.Label(frame_top, text="Repetir a cada:").grid(row=3, column=0, sticky="w", pady=10)
+        tk.Label(self.frame_top, text="Repetir a cada:").grid(row=3, column=0, sticky="w", pady=10)
         
-        frame_freq = tk.Frame(frame_top)
+        frame_freq = tk.Frame(self.frame_top)
         frame_freq.grid(row=3, column=1, columnspan=3, sticky="w")
         
         self.entry_intervalo = tk.Entry(frame_freq, width=10)
@@ -67,7 +68,17 @@ class AgendadorApp:
         
         tk.Label(frame_freq, text="(0 = Execução Única)", fg="gray").pack(side="left", padx=10)
 
-        tk.Button(frame_top, text="AGENDAR TAREFA", command=self.adicionar_tarefa, bg="#ccffcc", height=2).grid(row=4, column=0, columnspan=4, sticky="we", pady=10)
+        # Botões de Ação
+        frame_action = tk.Frame(self.frame_top)
+        frame_action.grid(row=4, column=0, columnspan=4, sticky="we", pady=10)
+        
+        self.btn_salvar = tk.Button(frame_action, text="AGENDAR TAREFA", command=self.salvar_ou_adicionar, bg="#ccffcc", height=2)
+        self.btn_salvar.pack(side="left", fill="x", expand=True, padx=5)
+        
+        self.btn_cancelar = tk.Button(frame_action, text="Cancelar Edição", command=self.cancelar_edicao, bg="#f0f0f0", height=2)
+        # O botão cancelar começa escondido (pack_forget) ou visível. Vamos deixar visível mas só útil na edição.
+        self.btn_cancelar.pack(side="left", padx=5)
+        self.btn_cancelar.config(state="disabled") # Desativado por padrão
 
         # --- 2. LISTAGEM ---
         frame_lista = tk.LabelFrame(root, text="Monitoramento de Tarefas", padx=10, pady=10)
@@ -91,15 +102,17 @@ class AgendadorApp:
         
         frame_botoes = tk.Frame(frame_lista)
         frame_botoes.pack(pady=5)
+        
+        tk.Button(frame_botoes, text="Editar Selecionada", command=self.preparar_edicao, bg="#fffccc").pack(side="left", padx=5)
         tk.Button(frame_botoes, text="Excluir Tarefa", command=self.remover_tarefa, bg="#ffcccc").pack(side="left", padx=5)
         tk.Button(frame_botoes, text="Forçar Execução Agora", command=self.forcar_execucao, bg="#ccccff").pack(side="left", padx=5)
 
         # Inicialização
         self.carregar_dados()
-        self.atualizar_visual() # <--- AQUI ESTÁ A CORREÇÃO
+        self.atualizar_visual()
         self.iniciar_motor()
 
-    # --- FUNÇÕES ---
+    # --- FUNÇÕES VISUAIS ---
 
     def buscar_arquivo(self):
         f = filedialog.askopenfilename(filetypes=[("Executáveis", "*.exe;*.bat;*.cmd;*.py"), ("Todos", "*.*")])
@@ -107,7 +120,74 @@ class AgendadorApp:
             self.entry_path.delete(0, tk.END)
             self.entry_path.insert(0, f)
 
-    def adicionar_tarefa(self):
+    def cancelar_edicao(self):
+        # Limpa tudo e volta ao estado "Novo"
+        self.entry_nome.delete(0, tk.END)
+        self.entry_path.delete(0, tk.END)
+        self.entry_intervalo.delete(0, tk.END)
+        self.entry_intervalo.insert(0, "24")
+        
+        # Reseta data para hoje
+        self.entry_data.delete(0, tk.END)
+        self.entry_data.insert(0, datetime.now().strftime("%d/%m/%Y"))
+        self.entry_hora.delete(0, tk.END)
+        self.entry_hora.insert(0, datetime.now().strftime("%H:%M"))
+        
+        self.tarefa_em_edicao_index = None
+        self.btn_salvar.config(text="AGENDAR TAREFA", bg="#ccffcc")
+        self.frame_top.config(text="Configurar Nova Tarefa")
+        self.btn_cancelar.config(state="disabled")
+
+    def preparar_edicao(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("Aviso", "Selecione uma tarefa na lista para editar.")
+            return
+
+        item = self.tree.item(sel)['values']
+        nome_alvo = item[0]
+        
+        # Acha a tarefa na lista interna
+        index = -1
+        tarefa_encontrada = None
+        for i, t in enumerate(self.tarefas):
+            if t['nome'] == nome_alvo:
+                index = i
+                tarefa_encontrada = t
+                break
+        
+        if index != -1:
+            self.tarefa_em_edicao_index = index
+            t = tarefa_encontrada
+            
+            # Preenche campos
+            self.entry_nome.delete(0, tk.END)
+            self.entry_nome.insert(0, t['nome'])
+            
+            self.entry_path.delete(0, tk.END)
+            self.entry_path.insert(0, t['path'])
+            
+            self.entry_intervalo.delete(0, tk.END)
+            self.entry_intervalo.insert(0, t['interval_val'])
+            
+            self.combo_unidade.set(t['interval_unit'])
+            
+            # Separa "DD/MM/AAAA HH:MM" em dois campos
+            try:
+                data_hora = t['anchor_str'].split(' ')
+                self.entry_data.delete(0, tk.END)
+                self.entry_data.insert(0, data_hora[0])
+                self.entry_hora.delete(0, tk.END)
+                self.entry_hora.insert(0, data_hora[1])
+            except:
+                pass # Se der erro, mantém a data atual
+            
+            # Ajusta botões
+            self.btn_salvar.config(text="SALVAR ALTERAÇÕES", bg="#ffd700") # Dourado
+            self.frame_top.config(text=f"Editando: {t['nome']}")
+            self.btn_cancelar.config(state="normal")
+
+    def salvar_ou_adicionar(self):
         nome = self.entry_nome.get()
         path = self.entry_path.get()
         data = self.entry_data.get()
@@ -126,18 +206,31 @@ class AgendadorApp:
             messagebox.showerror("Erro", "Data inválida ou intervalo não numérico.")
             return
 
-        nova = {
+        # Objeto tarefa
+        nova_tarefa = {
             "nome": nome,
             "path": path,
             "anchor_str": f"{data} {hora}",
             "interval_val": int(interv_val),
             "interval_unit": interv_uni,
-            "last_run": "Nunca" # Campo novo para guardar histórico
+            "last_run": "Nunca" 
         }
+
+        if self.tarefa_em_edicao_index is not None:
+            # MODO EDIÇÃO: Atualiza a existente
+            # Mantém o histórico antigo se o usuário não quiser resetar
+            hist_antigo = self.tarefas[self.tarefa_em_edicao_index].get('last_run', 'Nunca')
+            nova_tarefa['last_run'] = hist_antigo
+            
+            self.tarefas[self.tarefa_em_edicao_index] = nova_tarefa
+            messagebox.showinfo("Sucesso", "Tarefa atualizada com sucesso!")
+        else:
+            # MODO CRIAÇÃO: Adiciona nova
+            self.tarefas.append(nova_tarefa)
         
-        self.tarefas.append(nova)
         self.salvar_dados()
         self.atualizar_visual()
+        self.cancelar_edicao() # Limpa o form
 
     def remover_tarefa(self):
         sel = self.tree.selection()
@@ -146,6 +239,8 @@ class AgendadorApp:
         self.tarefas = [t for t in self.tarefas if t['nome'] != item[0]]
         self.salvar_dados()
         self.atualizar_visual()
+
+    # --- LÓGICA DO MOTOR ---
 
     def calcular_proxima(self, tarefa):
         agora = datetime.now()
@@ -172,13 +267,11 @@ class AgendadorApp:
             prox = self.calcular_proxima(t)
             prox_str = prox.strftime("%d/%m/%Y %H:%M:%S") if prox else "Concluído"
             regra = f"Cada {t['interval_val']} {t['interval_unit']}"
-            # Pega o histórico, se não existir (tarefas antigas) mostra "Nunca"
             ult_exec = t.get('last_run', 'Nunca')
             
             self.tree.insert("", tk.END, values=(t['nome'], ult_exec, prox_str, regra, t['path']))
 
     def executar_processo(self, path, nome_tarefa=None):
-        # 1. Atualiza o Horário da Última Execução na memória e JSON
         agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         
         if nome_tarefa:
@@ -187,14 +280,10 @@ class AgendadorApp:
                     t['last_run'] = agora_str
                     break
             self.salvar_dados()
-            # Atualiza a interface visualmente (via thread segura) se necessário
-            # self.root.after(0, self.atualizar_visual) -> Já é chamado no loop principal
 
-        # 2. Log em Texto
         with open(ARQUIVO_LOG, "a", encoding="utf-8") as f:
             f.write(f"[{agora_str}] Iniciando: {path}\n")
             
-        # 3. Executa
         try:
             pasta = os.path.dirname(path)
             nome_arq = os.path.basename(path)
@@ -209,10 +298,9 @@ class AgendadorApp:
         if sel:
             valores = self.tree.item(sel)['values']
             nome = valores[0]
-            path = valores[4] # O indice mudou porque adicionamos uma coluna
-            
+            path = valores[4]
             self.executar_processo(path, nome_tarefa=nome)
-            self.atualizar_visual() # Força atualização imediata da tela
+            self.atualizar_visual()
 
     # --- PERSISTÊNCIA ---
     def salvar_dados(self):
@@ -226,23 +314,17 @@ class AgendadorApp:
                     self.tarefas = json.load(f)
             except: self.tarefas = []
 
-    # --- MOTOR DO TEMPO ---
     def motor_loop(self):
         while True:
             agora = datetime.now()
-            
             for t in self.tarefas:
                 prox = self.calcular_proxima(t)
-                
                 if prox:
                     diff = (prox - agora).total_seconds()
-                    # Margem de execução (1.5 segundos)
                     if 0 <= diff < 1.5:
-                        # Chama a execução passando o Nome para salvar o histórico
                         self.root.after(0, lambda p=t['path'], n=t['nome']: self.executar_processo(p, n))
                         self.root.after(100, self.atualizar_visual)
                         time.sleep(1.5)
-
             time.sleep(1)
 
     def iniciar_motor(self):

@@ -20,11 +20,14 @@ ARQUIVO_LOG = os.path.join(application_path, "log_execucao.txt")
 class AgendadorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Agendador Python 3.4")
+        self.root.title("Agendador Master 3.6")
         self.root.geometry("1000x650")
         
         self.tarefas = []
-        self.tarefa_em_edicao_index = None # Variável de controle (None = Criando, Número = Editando)
+        self.tarefa_em_edicao_index = None
+        
+        # --- VINCULA A TECLA F5 ---
+        self.root.bind('<F5>', self.atualizar_tudo)
         
         # --- 1. ÁREA DE CADASTRO ---
         self.frame_top = tk.LabelFrame(root, text="Configurar / Editar Tarefa", padx=15, pady=15)
@@ -76,9 +79,8 @@ class AgendadorApp:
         self.btn_salvar.pack(side="left", fill="x", expand=True, padx=5)
         
         self.btn_cancelar = tk.Button(frame_action, text="Cancelar Edição", command=self.cancelar_edicao, bg="#f0f0f0", height=2)
-        # O botão cancelar começa escondido (pack_forget) ou visível. Vamos deixar visível mas só útil na edição.
         self.btn_cancelar.pack(side="left", padx=5)
-        self.btn_cancelar.config(state="disabled") # Desativado por padrão
+        self.btn_cancelar.config(state="disabled")
 
         # --- 2. LISTAGEM ---
         frame_lista = tk.LabelFrame(root, text="Monitoramento de Tarefas", padx=10, pady=10)
@@ -100,8 +102,12 @@ class AgendadorApp:
         
         self.tree.pack(fill="both", expand=True)
         
+        # --- BOTÕES INFERIORES ---
         frame_botoes = tk.Frame(frame_lista)
         frame_botoes.pack(pady=5)
+        
+        # Botão Atualizar (Sem feedback visual no título)
+        tk.Button(frame_botoes, text="🔄 Atualizar Lista (F5)", command=self.atualizar_tudo, bg="#e6e6e6").pack(side="left", padx=5)
         
         tk.Button(frame_botoes, text="Editar Selecionada", command=self.preparar_edicao, bg="#fffccc").pack(side="left", padx=5)
         tk.Button(frame_botoes, text="Excluir Tarefa", command=self.remover_tarefa, bg="#ffcccc").pack(side="left", padx=5)
@@ -119,15 +125,19 @@ class AgendadorApp:
         if f:
             self.entry_path.delete(0, tk.END)
             self.entry_path.insert(0, f)
+            
+    # --- FUNÇÃO DE REFRESH LIMPA ---
+    def atualizar_tudo(self, event=None):
+        # Apenas recarrega e desenha, sem mudar título
+        self.carregar_dados()
+        self.atualizar_visual()
 
     def cancelar_edicao(self):
-        # Limpa tudo e volta ao estado "Novo"
         self.entry_nome.delete(0, tk.END)
         self.entry_path.delete(0, tk.END)
         self.entry_intervalo.delete(0, tk.END)
         self.entry_intervalo.insert(0, "24")
         
-        # Reseta data para hoje
         self.entry_data.delete(0, tk.END)
         self.entry_data.insert(0, datetime.now().strftime("%d/%m/%Y"))
         self.entry_hora.delete(0, tk.END)
@@ -147,7 +157,6 @@ class AgendadorApp:
         item = self.tree.item(sel)['values']
         nome_alvo = item[0]
         
-        # Acha a tarefa na lista interna
         index = -1
         tarefa_encontrada = None
         for i, t in enumerate(self.tarefas):
@@ -160,7 +169,6 @@ class AgendadorApp:
             self.tarefa_em_edicao_index = index
             t = tarefa_encontrada
             
-            # Preenche campos
             self.entry_nome.delete(0, tk.END)
             self.entry_nome.insert(0, t['nome'])
             
@@ -172,18 +180,15 @@ class AgendadorApp:
             
             self.combo_unidade.set(t['interval_unit'])
             
-            # Separa "DD/MM/AAAA HH:MM" em dois campos
             try:
                 data_hora = t['anchor_str'].split(' ')
                 self.entry_data.delete(0, tk.END)
                 self.entry_data.insert(0, data_hora[0])
                 self.entry_hora.delete(0, tk.END)
                 self.entry_hora.insert(0, data_hora[1])
-            except:
-                pass # Se der erro, mantém a data atual
+            except: pass
             
-            # Ajusta botões
-            self.btn_salvar.config(text="SALVAR ALTERAÇÕES", bg="#ffd700") # Dourado
+            self.btn_salvar.config(text="SALVAR ALTERAÇÕES", bg="#ffd700")
             self.frame_top.config(text=f"Editando: {t['nome']}")
             self.btn_cancelar.config(state="normal")
 
@@ -206,7 +211,6 @@ class AgendadorApp:
             messagebox.showerror("Erro", "Data inválida ou intervalo não numérico.")
             return
 
-        # Objeto tarefa
         nova_tarefa = {
             "nome": nome,
             "path": path,
@@ -217,20 +221,16 @@ class AgendadorApp:
         }
 
         if self.tarefa_em_edicao_index is not None:
-            # MODO EDIÇÃO: Atualiza a existente
-            # Mantém o histórico antigo se o usuário não quiser resetar
             hist_antigo = self.tarefas[self.tarefa_em_edicao_index].get('last_run', 'Nunca')
             nova_tarefa['last_run'] = hist_antigo
-            
             self.tarefas[self.tarefa_em_edicao_index] = nova_tarefa
             messagebox.showinfo("Sucesso", "Tarefa atualizada com sucesso!")
         else:
-            # MODO CRIAÇÃO: Adiciona nova
             self.tarefas.append(nova_tarefa)
         
         self.salvar_dados()
         self.atualizar_visual()
-        self.cancelar_edicao() # Limpa o form
+        self.cancelar_edicao()
 
     def remover_tarefa(self):
         sel = self.tree.selection()

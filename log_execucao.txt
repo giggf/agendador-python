@@ -1,9 +1,0 @@
-[2025-11-25 09:57:00] Tentando iniciar: C:/Users/424173468.NATURA/Desktop/executaveis/relatorioLog.exe
-[2025-11-25 09:57:00] Sucesso: Comando enviado ao Windows.
-[2025-11-25 10:05:00] Tentando iniciar visivelmente: C:/Users/424173468.NATURA/Desktop/executaveis/relatorioLog.exe
-[2025-11-25 10:05:00] Sucesso: Nova janela aberta.
-[2025-11-25 10:05:00] Tentando iniciar: C:/Users/424173468.NATURA/Desktop/executaveis/relatorioLog.exe
-[2025-11-25 10:05:00] Sucesso: Comando enviado ao Windows.
-[2025-11-25 10:16:59] Iniciando: C:/Users/424173468.NATURA/Desktop/executaveis/monitor.exe
-[2025-11-25 10:19:59] Iniciando: C:/Users/424173468.NATURA/Desktop/executaveis/monitor.exe
-[25/11/2025 10:22:45] Iniciando: C:/Users/424173468.NATURA/Desktop/executaveis/monitor.exe

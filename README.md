@@ -83,7 +83,7 @@ Ao rodar, o programa gerará automaticamente dois arquivos na mesma pasta:`
 - `tarefas.json`: Banco de dados das suas tarefas.
 - `log_execucao.txt`: Histórico de erros e sucessos.
 
-**Nota:** Mantenha o `tarefas.json` junto do .exe se mover o programa de lugar, para não perder seus agendamentos.
+**Nota:** Mantenha o tarefas.json junto do .exe se mover o programa de lugar, para não perder seus agendamentos.
 
 
 

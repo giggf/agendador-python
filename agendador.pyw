@@ -8,6 +8,10 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+# Bibliotecas para o Ícone da Bandeja
+import pystray
+from PIL import Image, ImageDraw
+
 # --- CONFIGURAÇÃO DE AMBIENTE ---
 if getattr(sys, 'frozen', False):
     application_path = os.path.dirname(sys.executable)
@@ -20,18 +24,30 @@ ARQUIVO_LOG = os.path.join(application_path, "log_execucao.txt")
 class AgendadorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Agendador Master 3.6")
-        self.root.geometry("1000x650")
+        self.root.title("Agendador Python 4.3")
+        self.root.geometry("1000x700") # Aumentei um pouco a altura
+        
+        # Tenta carregar ícone da janela
+        try:
+            icone_path = self.pegar_caminho_recurso("icone.ico")
+            if os.path.exists(icone_path):
+                self.root.iconbitmap(icone_path)
+        except: pass
+
+        # Configuração do botão fechar (Tray)
+        self.root.protocol('WM_DELETE_WINDOW', self.minimizar_para_tray)
         
         self.tarefas = []
         self.tarefa_em_edicao_index = None
+        self.icon = None 
         
-        # --- VINCULA A TECLA F5 ---
         self.root.bind('<F5>', self.atualizar_tudo)
         
-        # --- 1. ÁREA DE CADASTRO ---
-        self.frame_top = tk.LabelFrame(root, text="Configurar / Editar Tarefa", padx=15, pady=15)
-        self.frame_top.pack(fill="x", padx=10, pady=5)
+        # --- 1. ÁREA DE CADASTRO (CENTRALIZADA) ---
+        # Removi o fill="x" para que o frame não estique.
+        # O padrão do pack() sem side=... é centralizar horizontalmente no topo.
+        self.frame_top = tk.LabelFrame(root, text="Configurar / Editar Tarefa", padx=20, pady=15)
+        self.frame_top.pack(padx=10, pady=15) 
         
         # Linha 1
         tk.Label(self.frame_top, text="Nome da Tarefa:").grid(row=0, column=0, sticky="w")
@@ -82,7 +98,7 @@ class AgendadorApp:
         self.btn_cancelar.pack(side="left", padx=5)
         self.btn_cancelar.config(state="disabled")
 
-        # --- 2. LISTAGEM ---
+        # --- 2. LISTAGEM (ESTA CONTINUA EXPANDINDO) ---
         frame_lista = tk.LabelFrame(root, text="Monitoramento de Tarefas", padx=10, pady=10)
         frame_lista.pack(fill="both", expand=True, padx=10, pady=5)
         
@@ -102,23 +118,67 @@ class AgendadorApp:
         
         self.tree.pack(fill="both", expand=True)
         
-        # --- BOTÕES INFERIORES ---
+        # Botões Inferiores
         frame_botoes = tk.Frame(frame_lista)
         frame_botoes.pack(pady=5)
         
-        # Botão Atualizar (Sem feedback visual no título)
         tk.Button(frame_botoes, text="🔄 Atualizar Lista (F5)", command=self.atualizar_tudo, bg="#e6e6e6").pack(side="left", padx=5)
-        
         tk.Button(frame_botoes, text="Editar Selecionada", command=self.preparar_edicao, bg="#fffccc").pack(side="left", padx=5)
         tk.Button(frame_botoes, text="Excluir Tarefa", command=self.remover_tarefa, bg="#ffcccc").pack(side="left", padx=5)
         tk.Button(frame_botoes, text="Forçar Execução Agora", command=self.forcar_execucao, bg="#ccccff").pack(side="left", padx=5)
 
-        # Inicialização
         self.carregar_dados()
         self.atualizar_visual()
         self.iniciar_motor()
 
-    # --- FUNÇÕES VISUAIS ---
+    # --- FUNÇÕES ---
+
+    def pegar_caminho_recurso(self, nome_arquivo):
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, nome_arquivo)
+        return os.path.join(os.path.abspath("."), nome_arquivo)
+
+    def criar_imagem_icone(self):
+        for nome_img in ["icone.ico", "icone.png"]:
+            caminho = self.pegar_caminho_recurso(nome_img)
+            if os.path.exists(caminho):
+                try:
+                    return Image.open(caminho)
+                except: pass
+
+        width = 64
+        height = 64
+        color1 = (0, 120, 215)
+        color2 = (255, 255, 255)
+        image = Image.new('RGB', (width, height), color1)
+        dc = ImageDraw.Draw(image)
+        dc.rectangle((width // 2, 0, width, height // 2), fill=color2)
+        dc.rectangle((0, height // 2, width // 2, height), fill=color2)
+        return image
+
+    def minimizar_para_tray(self):
+        try:
+            self.root.withdraw() 
+            image = self.criar_imagem_icone()
+            menu = (pystray.MenuItem('Abrir Agendador', self.mostrar_janela), 
+                    pystray.MenuItem('Sair Totalmente', self.sair_do_programa))
+            
+            self.icon = pystray.Icon("AgendadorPython", image, "Agendador Python", menu)
+            threading.Thread(target=self.icon.run, daemon=True).start()
+            
+        except Exception as e:
+            print(f"Erro no Tray: {e}")
+            self.root.deiconify()
+
+    def mostrar_janela(self, icon, item):
+        self.icon.stop() 
+        self.icon = None 
+        self.root.after(0, self.root.deiconify)
+
+    def sair_do_programa(self, icon, item):
+        self.icon.stop()
+        self.root.after(0, self.root.destroy)
+        os._exit(0)
 
     def buscar_arquivo(self):
         f = filedialog.askopenfilename(filetypes=[("Executáveis", "*.exe;*.bat;*.cmd;*.py"), ("Todos", "*.*")])
@@ -126,9 +186,7 @@ class AgendadorApp:
             self.entry_path.delete(0, tk.END)
             self.entry_path.insert(0, f)
             
-    # --- FUNÇÃO DE REFRESH LIMPA ---
     def atualizar_tudo(self, event=None):
-        # Apenas recarrega e desenha, sem mudar título
         self.carregar_dados()
         self.atualizar_visual()
 
@@ -137,12 +195,10 @@ class AgendadorApp:
         self.entry_path.delete(0, tk.END)
         self.entry_intervalo.delete(0, tk.END)
         self.entry_intervalo.insert(0, "24")
-        
         self.entry_data.delete(0, tk.END)
         self.entry_data.insert(0, datetime.now().strftime("%d/%m/%Y"))
         self.entry_hora.delete(0, tk.END)
         self.entry_hora.insert(0, datetime.now().strftime("%H:%M"))
-        
         self.tarefa_em_edicao_index = None
         self.btn_salvar.config(text="AGENDAR TAREFA", bg="#ccffcc")
         self.frame_top.config(text="Configurar Nova Tarefa")
@@ -153,10 +209,8 @@ class AgendadorApp:
         if not sel:
             messagebox.showwarning("Aviso", "Selecione uma tarefa na lista para editar.")
             return
-
         item = self.tree.item(sel)['values']
         nome_alvo = item[0]
-        
         index = -1
         tarefa_encontrada = None
         for i, t in enumerate(self.tarefas):
@@ -164,22 +218,16 @@ class AgendadorApp:
                 index = i
                 tarefa_encontrada = t
                 break
-        
         if index != -1:
             self.tarefa_em_edicao_index = index
             t = tarefa_encontrada
-            
             self.entry_nome.delete(0, tk.END)
             self.entry_nome.insert(0, t['nome'])
-            
             self.entry_path.delete(0, tk.END)
             self.entry_path.insert(0, t['path'])
-            
             self.entry_intervalo.delete(0, tk.END)
             self.entry_intervalo.insert(0, t['interval_val'])
-            
             self.combo_unidade.set(t['interval_unit'])
-            
             try:
                 data_hora = t['anchor_str'].split(' ')
                 self.entry_data.delete(0, tk.END)
@@ -187,7 +235,6 @@ class AgendadorApp:
                 self.entry_hora.delete(0, tk.END)
                 self.entry_hora.insert(0, data_hora[1])
             except: pass
-            
             self.btn_salvar.config(text="SALVAR ALTERAÇÕES", bg="#ffd700")
             self.frame_top.config(text=f"Editando: {t['nome']}")
             self.btn_cancelar.config(state="normal")
@@ -199,18 +246,15 @@ class AgendadorApp:
         hora = self.entry_hora.get()
         interv_val = self.entry_intervalo.get()
         interv_uni = self.combo_unidade.get()
-
         if not (nome and path and data and hora and interv_val):
             messagebox.showwarning("Erro", "Preencha todos os campos.")
             return
-
         try:
             datetime.strptime(f"{data} {hora}", "%d/%m/%Y %H:%M")
             int(interv_val)
         except:
             messagebox.showerror("Erro", "Data inválida ou intervalo não numérico.")
             return
-
         nova_tarefa = {
             "nome": nome,
             "path": path,
@@ -219,7 +263,6 @@ class AgendadorApp:
             "interval_unit": interv_uni,
             "last_run": "Nunca" 
         }
-
         if self.tarefa_em_edicao_index is not None:
             hist_antigo = self.tarefas[self.tarefa_em_edicao_index].get('last_run', 'Nunca')
             nova_tarefa['last_run'] = hist_antigo
@@ -227,7 +270,6 @@ class AgendadorApp:
             messagebox.showinfo("Sucesso", "Tarefa atualizada com sucesso!")
         else:
             self.tarefas.append(nova_tarefa)
-        
         self.salvar_dados()
         self.atualizar_visual()
         self.cancelar_edicao()
@@ -240,21 +282,16 @@ class AgendadorApp:
         self.salvar_dados()
         self.atualizar_visual()
 
-    # --- LÓGICA DO MOTOR ---
-
     def calcular_proxima(self, tarefa):
         agora = datetime.now()
         ancora = datetime.strptime(tarefa['anchor_str'], "%d/%m/%Y %H:%M")
         valor = tarefa['interval_val']
         unidade = tarefa['interval_unit']
-
         if valor == 0:
             return ancora if ancora > agora else None
-
         if unidade == "Minutos": delta = timedelta(minutes=valor)
         elif unidade == "Horas": delta = timedelta(hours=valor)
         elif unidade == "Dias": delta = timedelta(days=valor)
-        
         proxima = ancora
         while proxima <= agora:
             proxima += delta
@@ -262,28 +299,23 @@ class AgendadorApp:
 
     def atualizar_visual(self):
         for i in self.tree.get_children(): self.tree.delete(i)
-        
         for t in self.tarefas:
             prox = self.calcular_proxima(t)
             prox_str = prox.strftime("%d/%m/%Y %H:%M:%S") if prox else "Concluído"
             regra = f"Cada {t['interval_val']} {t['interval_unit']}"
             ult_exec = t.get('last_run', 'Nunca')
-            
             self.tree.insert("", tk.END, values=(t['nome'], ult_exec, prox_str, regra, t['path']))
 
     def executar_processo(self, path, nome_tarefa=None):
         agora_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        
         if nome_tarefa:
             for t in self.tarefas:
                 if t['nome'] == nome_tarefa:
                     t['last_run'] = agora_str
                     break
             self.salvar_dados()
-
         with open(ARQUIVO_LOG, "a", encoding="utf-8") as f:
             f.write(f"[{agora_str}] Iniciando: {path}\n")
-            
         try:
             pasta = os.path.dirname(path)
             nome_arq = os.path.basename(path)
@@ -302,7 +334,6 @@ class AgendadorApp:
             self.executar_processo(path, nome_tarefa=nome)
             self.atualizar_visual()
 
-    # --- PERSISTÊNCIA ---
     def salvar_dados(self):
         with open(ARQUIVO_DB, "w", encoding="utf-8") as f:
             json.dump(self.tarefas, f, indent=4)

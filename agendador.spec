@@ -5,7 +5,7 @@ a = Analysis(
     ['agendador.pyw'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('icone.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
